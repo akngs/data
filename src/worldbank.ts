@@ -15,7 +15,7 @@ type IdValue = {
     value: string
 }
 
-type PopulationRow = {
+type RawRow = {
     indicator: IdValue
     country: IdValue
     countryiso3code: string
@@ -26,46 +26,46 @@ type PopulationRow = {
     decimal: number
 }
 
-type TidyPopulation = {
+type CleanRow = {
     country: string
     year: number
-    population: number
+    value: number
 }
 
-export async function fetchAndSave(path: string): Promise<void> {
-    const raw = await fetchPopulation()
-    const clean = cleansePopulation(raw)
-    await writePopulation(path, clean)
+export async function fetchAndSave(path: string, indicator: string): Promise<void> {
+    const raw = await fetchData(indicator)
+    const clean = cleanseData(raw)
+    await saveData(path, clean)
 }
 
-async function fetchPopulation(): Promise<PopulationRow[]> {
+async function fetchData(indicator: string): Promise<RawRow[]> {
     const perPage = 2000
-    const urlPrefix = `https://api.worldbank.org/v2/country/all/indicator/SP.POP.TOTL?format=json&per_page=${perPage}&`
+    const urlPrefix = `https://api.worldbank.org/v2/country/all/indicator/${indicator}?format=json&per_page=${perPage}&`
 
     const firstPageUrl = urlPrefix + 'page=1'
     const res = await fetch(firstPageUrl)
-    const [meta, rows] = (await res.json()) as [Meta, PopulationRow[]]
+    const [meta, rows] = (await res.json()) as [Meta, RawRow[]]
     const allRows = [rows]
 
     for(let i = 2; i <= meta.pages; i++) {
         const url = urlPrefix + 'page=' + i
         const res = await fetch(url)
-        const [_meta, rows] = (await res.json()) as [Meta, PopulationRow[]]
+        const [_meta, rows] = (await res.json()) as [Meta, RawRow[]]
         allRows.push(rows)
     }
 
     return allRows.flat()
 }
 
-function cleansePopulation(data: PopulationRow[]): TidyPopulation[] {
+function cleanseData(data: RawRow[]): CleanRow[] {
     return data.map(d => ({
         country: d.countryiso3code,
         year: +d.date.substring(0, 4),
-        population: +d.value,
+        value: +d.value,
     }))
 }
 
-async function writePopulation(path: string, data: TidyPopulation[]) {
+async function saveData(path: string, data: CleanRow[]) {
     const f = await Deno.open(path, {write: true, create: true})
     const header = Object.keys(data[0])
     const generator = async function*() {
