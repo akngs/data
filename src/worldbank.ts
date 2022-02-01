@@ -1,5 +1,20 @@
 import { writeCSVObjects } from "https://deno.land/x/csv/mod.ts";
 
+const indicators = [
+    {
+        id: 'SP.POP.TOTL',
+        label: 'Total population',
+    },
+    {
+        id: 'NY.GDP.MKTP.CD',
+        label: 'GDP (current US $)'
+    },
+    {
+        id: 'NY.GDP.MKTP.PP.CD',
+        label: 'GDP (PPP, current internaltional $)'
+    },
+]
+
 type Meta = {
     page: number
     pages: number
@@ -32,10 +47,19 @@ type CleanRow = {
     value: number
 }
 
+export async function fetchAndSaveAll(pathPrefix: string): Promise<void> {
+    // fetch and save data
+    const jobs = indicators.map(i => fetchAndSave(`${pathPrefix}_${i.id}.csv,`, i.id))
+    await Promise.all(jobs)
+
+    // save metadata
+    await saveObjectsAsCsv(`${pathPrefix}_meta.csv`, indicators)
+}
+
 export async function fetchAndSave(path: string, indicator: string): Promise<void> {
     const raw = await fetchData(indicator)
     const clean = cleanseData(raw)
-    await saveData(path, clean)
+    await saveObjectsAsCsv(path, clean)
 }
 
 async function fetchData(indicator: string): Promise<RawRow[]> {
@@ -65,13 +89,12 @@ function cleanseData(data: RawRow[]): CleanRow[] {
     }))
 }
 
-async function saveData(path: string, data: CleanRow[]) {
+async function saveObjectsAsCsv(path: string, data: Record<string, any>): Promise<void> {
     const f = await Deno.open(path, {write: true, create: true})
     const header = Object.keys(data[0])
     const generator = async function*() {
-        for(let i = 0; i < data.length; i++) yield (data[i] as unknown as Record<string, string>)
+        for(let i = 0; i < data.length; i++) yield (data[i] as Record<string, string>)
     }
-    
     await writeCSVObjects(f, generator(), {header})
     f.close()
 }
