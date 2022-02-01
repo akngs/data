@@ -49,7 +49,7 @@ type CleanRow = {
 
 export async function fetchAndSaveAll(pathPrefix: string): Promise<void> {
     // fetch and save data
-    const jobs = indicators.map(i => fetchAndSave(`${pathPrefix}_${i.id}.csv,`, i.id))
+    const jobs = indicators.map(i => fetchAndSave(`${pathPrefix}_${i.id}.csv`, i.id))
     await Promise.all(jobs)
 
     // save metadata
